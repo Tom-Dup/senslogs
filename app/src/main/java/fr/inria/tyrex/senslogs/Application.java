@@ -4,6 +4,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
+import fr.inria.tyrex.senslogs.control.FlightRecorder;
 import fr.inria.tyrex.senslogs.control.LogsManager;
 import fr.inria.tyrex.senslogs.control.PreferencesManager;
 import fr.inria.tyrex.senslogs.control.Recorder;
@@ -20,6 +21,7 @@ public class Application extends android.app.Application {
     private SensorsManager mSensorsManager;
     private PreferencesManager mPreferencesManager;
     private Recorder mRecorder;
+    private FlightRecorder mFlightRecorder;
     private LogsManager mLogsManager;
 
 
@@ -33,6 +35,7 @@ public class Application extends android.app.Application {
         mLogsManager = new LogsManager(this, mSensorsManager);
         mPreferencesManager = new PreferencesManager(this, mSensorsManager);
         mRecorder = new Recorder(this, mLogsManager, mPreferencesManager);
+        mFlightRecorder = new FlightRecorder(this, mRecorder);
 
         // Clean internal directory (just in case)
         cleanTmpFiles();
@@ -43,8 +46,10 @@ public class Application extends android.app.Application {
         return mPreferencesManager;
     }
 
-    public Recorder getRecorder() {
-        return mRecorder;
+    public Recorder getRecorder() { return mRecorder; }
+
+    public FlightRecorder getFlightRecorder() {
+        return mFlightRecorder;
     }
 
     public LogsManager getLogsManager() {

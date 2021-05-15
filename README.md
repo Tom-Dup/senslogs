@@ -1,3 +1,7 @@
+# About this fork
+
+I forked this app for...
+
 # Application
 
 This Android application records values from several smartphone sensors:

@@ -91,7 +91,6 @@ public class NmeaSensor extends Sensor implements FieldsWritableObject {
         }
 
         locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 0, 0, mLocationListener);
-        locationManager.addNmeaListener(mNmeaListener);
 
         mStartTime = recordTimes.startTime;
     }
@@ -106,7 +105,6 @@ public class NmeaSensor extends Sensor implements FieldsWritableObject {
             return;
         }
 
-        locationManager.removeNmeaListener(mNmeaListener);
         locationManager.removeUpdates(mLocationListener);
     }
 
@@ -130,18 +128,6 @@ public class NmeaSensor extends Sensor implements FieldsWritableObject {
 
         @Override
         public void onProviderDisabled(String provider) {
-        }
-    };
-
-    @RequiresApi(api = Build.VERSION_CODES.N)
-    transient private OnNmeaMessageListener mNmeaListener = new OnNmeaMessageListener() {
-        @Override
-        public void onNmeaMessage(String nmea, long timestamp) {
-            double systemTimestamp = System.currentTimeMillis() / 1e3d - mStartTime;
-            if (mListener == null) {
-                return;
-            }
-            mListener.onNewValues(systemTimestamp, timestamp / 1e3d - mStartTime, new Object[]{nmea});
         }
     };
 

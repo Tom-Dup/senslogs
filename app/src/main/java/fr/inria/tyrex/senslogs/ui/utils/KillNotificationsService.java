@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.os.Binder;
 import android.os.IBinder;
 
+import fr.inria.tyrex.senslogs.control.FlightRecorder;
 import fr.inria.tyrex.senslogs.control.Recorder;
 
 /**
@@ -35,6 +36,7 @@ public class KillNotificationsService extends Service {
     @Override
     public void onCreate() {
         NotificationManager mNM = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+        assert mNM != null;
         mNM.cancel(Recorder.NOTIFICATION_ID);
     }
 }

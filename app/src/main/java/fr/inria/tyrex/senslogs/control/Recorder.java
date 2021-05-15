@@ -19,6 +19,7 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.Set;
 
 import fr.inria.tyrex.senslogs.R;
 import fr.inria.tyrex.senslogs.model.FieldsWritableObject;
@@ -34,6 +35,16 @@ import fr.inria.tyrex.senslogs.ui.utils.KillNotificationsService;
  * Handle timers and record sensors data
  */
 public class Recorder {
+
+    // Listener defined earlier
+    public interface RecorderListener {
+        public void onPlay() throws FileNotFoundException;
+        public void onPause();
+        public void onCancel();
+        public void onSave();
+    }
+
+    private RecorderListener listener;
 
     public final static int NOTIFICATION_ID = 1;
 
@@ -53,12 +64,24 @@ public class Recorder {
 
     public Recorder(Context context, LogsManager logsManager,
                     PreferencesManager preferencesManager) {
+        this.listener = null;
         mContext = context;
         mLogsManager = logsManager;
         mPreferencesManager = preferencesManager;
         mReferences = new LinkedList<>();
     }
 
+    public void setListener(RecorderListener listener) {
+        this.listener = listener;
+    }
+
+    public RecorderWriter getRecorderWriter() {
+        return mRecorderWriter;
+    }
+
+    public Log getLog() {
+        return mLog;
+    }
 
     public boolean isRecording() {
         return isRecording;
@@ -119,7 +142,7 @@ public class Recorder {
                 sensor.setListener(new Sensor.Listener() {
                     @Override
                     public void onNewValues(double diffTimeSystem, double diffTimeSensor, Object[] objects) {
-                        mRecorderWriter.asycWrite(sensor, diffTimeSystem, diffTimeSensor, objects);
+                        mRecorderWriter.asyncWrite(sensor, diffTimeSystem, diffTimeSensor, objects);
                     }
                 });
             }
@@ -135,6 +158,9 @@ public class Recorder {
         createNotification();
         startTimer();
         isRecording = true;
+
+        if (listener != null)
+            listener.onPlay();
     }
 
 
@@ -158,6 +184,9 @@ public class Recorder {
 
         mLog.getRecordTimes().endTime = System.currentTimeMillis() / 1e3d;
         isRecording = false;
+
+        if (listener != null)
+            listener.onPause();
     }
 
 
@@ -171,6 +200,9 @@ public class Recorder {
         mRecorderWriter.removeFiles();
         isInitialized = false;
         isRecording = false;
+
+        if (listener != null)
+            listener.onCancel();
     }
 
 
@@ -224,6 +256,9 @@ public class Recorder {
 
         isInitialized = false;
 
+        if (listener != null)
+            listener.onSave();
+
         return mLog;
     }
 
@@ -232,6 +267,9 @@ public class Recorder {
         return mLog.getRecordTimes();
     }
 
+    public Set<Sensor> getSensors() {
+        return mSensorsAndSettings.keySet();
+    }
 
     public void addReference(double latitude, double longitude, Float level) {
         double elapsedTime = System.currentTimeMillis() / 1e3d - mLog.getRecordTimes().startTime;
