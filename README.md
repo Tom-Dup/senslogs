@@ -1,6 +1,6 @@
 # About this fork
 
-I forked this app for...
+I forked this app for my own study project.
 
 # Application
 
