@@ -212,6 +212,9 @@ public class Recorder {
 
     public Log save(String title, String user, String positionOrientation, String comment) throws IOException {
 
+        if (listener != null)
+            listener.onSave();
+
         mRecorderWriter.writeReferences(mReferences);
         mRecorderWriter.finish();
 
@@ -255,9 +258,6 @@ public class Recorder {
         mLogsManager.addLog(mLog);
 
         isInitialized = false;
-
-        if (listener != null)
-            listener.onSave();
 
         return mLog;
     }
