@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="webdav_url" translatable="false">https://</string>
+    <string name="webdav_username" translatable="false">username</string>
+    <string name="webdav_password" translatable="false">password</string>
+    <string name="geolocation_url" translatable="false">https://</string>
+</resources>
