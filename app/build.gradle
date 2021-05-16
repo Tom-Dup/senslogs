@@ -6,7 +6,7 @@ android {
 
     defaultConfig {
         applicationId "fr.inria.tyrex.senslogs"
-        minSdkVersion 14
+        minSdkVersion 15
         targetSdkVersion 30
         versionCode 5
         versionName "3.0"
@@ -23,7 +23,7 @@ android {
 
 repositories {
     maven {
-        url "https://s3.amazonaws.com/repo.commonsware.com"
+        url "https://jitpack.io"
     }
 }
 
@@ -34,4 +34,5 @@ dependencies {
     implementation 'com.bignerdranch.android:recyclerview-multiselect:0.2'
     implementation 'com.google.code.gson:gson:2.8.6'
     implementation 'org.ini4j:ini4j:0.5.4'
+    implementation 'com.github.thegrizzlylabs:sardine-android:0.8'
 }

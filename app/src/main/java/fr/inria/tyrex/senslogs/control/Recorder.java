@@ -27,6 +27,7 @@ import fr.inria.tyrex.senslogs.model.PositionReference;
 import fr.inria.tyrex.senslogs.model.log.CalibrationLog;
 import fr.inria.tyrex.senslogs.model.log.Log;
 import fr.inria.tyrex.senslogs.model.sensors.CameraRecorder;
+import fr.inria.tyrex.senslogs.model.sensors.LocationGpsSensor;
 import fr.inria.tyrex.senslogs.model.sensors.Sensor;
 import fr.inria.tyrex.senslogs.ui.RecordActivity;
 import fr.inria.tyrex.senslogs.ui.utils.KillNotificationsService;
@@ -42,6 +43,7 @@ public class Recorder {
         public void onPause();
         public void onCancel();
         public void onSave();
+        public void onNewLocation(Sensor sensor, Object[] objects);
     }
 
     private RecorderListener listener;
@@ -142,6 +144,9 @@ public class Recorder {
                 sensor.setListener(new Sensor.Listener() {
                     @Override
                     public void onNewValues(double diffTimeSystem, double diffTimeSensor, Object[] objects) {
+                        if (listener != null && sensor instanceof LocationGpsSensor) {
+                            listener.onNewLocation(sensor, objects);
+                        }
                         mRecorderWriter.asyncWrite(sensor, diffTimeSystem, diffTimeSensor, objects);
                     }
                 });

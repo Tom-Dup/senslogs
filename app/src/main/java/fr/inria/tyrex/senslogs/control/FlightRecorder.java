@@ -3,11 +3,15 @@ package fr.inria.tyrex.senslogs.control;
 import android.content.Context;
 import android.util.Pair;
 
+import com.thegrizzlylabs.sardineandroid.Sardine;
+import com.thegrizzlylabs.sardineandroid.impl.OkHttpSardine;
+
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.Timer;
 import java.util.TimerTask;
@@ -15,9 +19,13 @@ import java.util.UUID;
 
 import androidx.core.content.ContextCompat;
 import fr.inria.tyrex.senslogs.Application;
+import fr.inria.tyrex.senslogs.R;
 import fr.inria.tyrex.senslogs.model.FieldsWritableObject;
 import fr.inria.tyrex.senslogs.model.log.Log;
 import fr.inria.tyrex.senslogs.model.sensors.Sensor;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class FlightRecorder {
 
@@ -34,9 +42,28 @@ public class FlightRecorder {
     private Map<Integer, File> mWorkingFolders;
     private Set<Sensor> mSensors;
     private ZipCreationTask mZipCreationTask;
+    private String webDavUsername = "";
+    private String webDavPassword = "";
+    private String webDavUrl = "";
+    private String geoLocationUrl = "";
+
+    OkHttpClient client = new OkHttpClient();
+
+    String getUrl(String url) throws IOException {
+        Request request = new Request.Builder()
+                .url(url)
+                .build();
+        try (Response response = client.newCall(request).execute()) {
+            return Objects.requireNonNull(response.body()).string();
+        }
+    }
 
     public FlightRecorder(Context context, Recorder realRecorder) {
         mContext = context;
+        webDavUsername = mContext.getResources().getString(R.string.webdav_username);
+        webDavPassword = mContext.getResources().getString(R.string.webdav_password);
+        webDavUrl = mContext.getResources().getString(R.string.webdav_url);
+        geoLocationUrl = mContext.getResources().getString(R.string.geolocation_url);
         mRecorder = realRecorder;
         mRecorderWriter = mRecorder.getRecorderWriter();
         mWorkingFolders = new HashMap<>();
@@ -94,8 +121,38 @@ public class FlightRecorder {
                 //deleteWorkingFolders();
                 iteration = 0;
             }
+
+            @Override
+            public void onNewLocation(Sensor sensor, Object[] objects) {
+                Thread thread = new Thread(new Runnable(){
+                    @Override
+                    public void run() {
+                        try {
+                            sendNewLocation(sensor, objects);
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+                thread.start();
+            }
         };
         mRecorder.setListener(mRecorderListener);
+    }
+
+    private void sendNewLocation(Sensor sensor, Object[] values) {
+        StringBuilder buffer = new StringBuilder();
+        String response = null;
+        for (Object value : values) {
+            buffer.append(value.toString()).append(";");
+        }
+        try {
+            response = getUrl(geoLocationUrl + "?data=" + buffer.toString());
+            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: sendNewLocation response " + response);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        System.out.println(response);
     }
 
     private void deleteWorkingFolders() {
@@ -184,10 +241,49 @@ public class FlightRecorder {
                     @Override
                     public void onTaskFinished(File outputFile, long fileSize) {
                         android.util.Log.d(Application.LOG_TAG, "FlightRecorder: zip created for iteration " + iterationToSave.toString());
-                        // Remove files when recorder finished
-                        // TODO
+                        // Remove working folder when zip is created
+                        File mTemporaryFolder = new File(mContext.getFilesDir() + "/" + mainWorkingFolder, iterationToSave.toString());
+                        if (mTemporaryFolder.isDirectory()) {
+                            String[] children = mTemporaryFolder.list();
+                            for (String child : children) {
+                                if (new File(mTemporaryFolder, child).delete())
+                                    android.util.Log.d(Application.LOG_TAG, "FlightRecorder: file " + child + " deleted in working folder " + mTemporaryFolder.toString() + " for iteration " + iterationToSave);
+                            }
+                        }
+                        if (mTemporaryFolder.delete())
+                            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: working folder " + mTemporaryFolder.toString() + " deleted for iteration " + iterationToSave);
                         zipTask.removeListener(this);
                         // Send file web server
+                        Thread thread = new Thread(new Runnable(){
+                            @Override
+                            public void run() {
+                                try {
+                                    Sardine sardine = new OkHttpSardine();
+                                    sardine.setCredentials(webDavUsername, webDavPassword);
+                                    if (iterationToSave == 1) {
+                                        try {
+                                            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: create webdav directory " + webDavUrl + mainWorkingFolder);
+                                            sardine.createDirectory(webDavUrl + mainWorkingFolder);
+                                        } catch (IOException e) {
+                                            e.printStackTrace();
+                                        }
+                                    }
+                                    String filename = webDavUrl + mainWorkingFolder + "/" + zipFile.getName();
+                                    try {
+                                        android.util.Log.d(Application.LOG_TAG, "FlightRecorder: sending file to webdav " + filename);
+                                        sardine.put(filename, zipFile, "application/zip");
+                                        //TODO: copy file to SDCARD (if any)
+                                        if (zipFile.delete())
+                                            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: zip file " + zipFile.toString() + " deleted for iteration " + iterationToSave);
+                                    } catch (IOException e) {
+                                        e.printStackTrace();
+                                    }
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        });
+                        thread.start();
                     }
                 });
             } catch (IOException e) {
