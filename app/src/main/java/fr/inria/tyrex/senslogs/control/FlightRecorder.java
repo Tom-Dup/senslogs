@@ -1,6 +1,7 @@
 package fr.inria.tyrex.senslogs.control;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.Environment;
 import android.util.Pair;
 
@@ -15,6 +16,7 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
 
+import androidx.annotation.RequiresApi;
 import androidx.core.content.ContextCompat;
 import fr.inria.tyrex.senslogs.Application;
 import fr.inria.tyrex.senslogs.R;
@@ -234,7 +236,7 @@ public class FlightRecorder {
                         if (mTemporaryFolder.delete())
                             android.util.Log.d(Application.LOG_TAG, "FlightRecorder: working folder " + mTemporaryFolder.toString() + " deleted for iteration " + iterationToSave);
                         zipTask.removeListener(this);
-                        // copy file to SDCARD (if any)
+                        // copy file to internal and/or external storage
                         if (StorageHelper.isExternalStorageReadableAndWritable()) {
                             android.util.Log.d(Application.LOG_TAG, "FlightRecorder: copying file to sdcard as " + zipFile.getName());
                             copyFileToSdCard(zipFile);
@@ -251,8 +253,20 @@ public class FlightRecorder {
 
     public void copyFileToSdCard(File file) {
 
-        File outputDir = new File(Environment.getExternalStorageDirectory(),
-                mContext.getString(R.string.folder_logs_sd_card));
+        File outputDir = null;
+
+        File[] fs = mContext.getExternalFilesDirs(null);
+        // at index 0 you have the internal storage and at index 1 the real external...
+        if (fs != null && fs.length >= 2) {
+            outputDir = fs[1];
+        }
+
+        if (outputDir==null) {
+            outputDir = new File(Environment.getExternalStorageDirectory(),
+                    mContext.getString(R.string.folder_logs_sd_card));
+        }
+
+        android.util.Log.d(Application.LOG_TAG, "FlightRecorder: External Path => " + outputDir.toString());
 
         if(!outputDir.exists() && !outputDir.mkdir()) {
             return ;
