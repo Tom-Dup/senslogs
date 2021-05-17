@@ -16,16 +16,14 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.util.UUID;
 
-import androidx.annotation.RequiresApi;
+import android.provider.Settings.Secure;
 import androidx.core.content.ContextCompat;
 import fr.inria.tyrex.senslogs.Application;
 import fr.inria.tyrex.senslogs.R;
 import fr.inria.tyrex.senslogs.model.FieldsWritableObject;
 import fr.inria.tyrex.senslogs.model.log.Log;
 import fr.inria.tyrex.senslogs.model.sensors.Sensor;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+
 
 public class FlightRecorder {
 
@@ -36,7 +34,7 @@ public class FlightRecorder {
     private final Recorder.RecorderListener mRecorderListener;
     private Timer timer;
     private TimerTask timerTask;
-    private final int interval = 5000; // 10 Second
+    private final int interval = 30000; // create an iteration every 30 Seconds
     private Integer iteration = 0;
     private String mainWorkingFolder;
     private Map<Integer, File> mWorkingFolders;
@@ -44,11 +42,13 @@ public class FlightRecorder {
     private ZipCreationTask mZipCreationTask;
     private SendQueue sendQueue;
     private String geoLocationUrl = "";
+    private String android_id = "";
 
     public FlightRecorder(Context context, Recorder realRecorder) {
         mContext = context;
         mRecorder = realRecorder;
         sendQueue  = new SendQueue(context);
+        android_id= Secure.getString(context.getContentResolver(), Secure.ANDROID_ID);
         geoLocationUrl = context.getResources().getString(R.string.geolocation_url);
         mRecorderWriter = mRecorder.getRecorderWriter();
         mWorkingFolders = new HashMap<>();
@@ -131,6 +131,7 @@ public class FlightRecorder {
     private void addNewLocationToQueue(Sensor sensor, Object[] values) {
         Long time = System.currentTimeMillis();
         StringBuilder buffer = new StringBuilder();
+        buffer.append(android_id).append(";");
         buffer.append(time.toString()).append(";");
         for (Object value : values) {
             buffer.append(value.toString()).append(";");
