@@ -52,11 +52,16 @@ public class RecorderWriter {
     private Map<WritableObject, File> mSensorsFiles;
     private File mOutputDirectory;
 
+    // Variables for our FlightRecorder iterations
     private Integer currentIteration = 1;
     private File currentFrWorkingFolder;
+    // Collection of filenames per iteration
     private Map<Integer, List<String>> frIterationFileNames;
+    // Collection of FileOutputStream per iteration
     private Map<Integer, Map<WritableObject, FileOutputStream>> frIterationSensorsFos;
+    // Collection of File per iteration
     private Map<Integer, Map<WritableObject, File>> frIterationSensorsFiles;
+    // Collection of (sub)folder (in the currentFrWorkingFolder) per iteration
     private Map<Integer, File> frIterationOutputDirectory;
 
     public RecorderWriter(Context context) {
@@ -106,6 +111,7 @@ public class RecorderWriter {
         this.currentFrWorkingFolder = currentFrWorkingFolder;
     }
 
+    // Function called for each iteration in order to fill our collections
     public void initFrIteration(Integer iteration, File frOutputDirectory) {
         this.currentIteration = iteration;
         this.frIterationOutputDirectory.put(this.currentIteration, frOutputDirectory);
@@ -115,10 +121,12 @@ public class RecorderWriter {
         android.util.Log.d(Application.LOG_TAG, "setFrOutputDirectory: initFrIteration " + this.currentIteration.toString() + " => " + frOutputDirectory.toString());
     }
 
+    // Original function
     private void createFile(FieldsWritableObject fwo) throws FileNotFoundException {
         createFile(fwo, false);
     }
 
+    // New function with an additional parameter in order to know that we create a file for an iteration
     public void createFile(FieldsWritableObject fwo, boolean forFlightRecorder) throws FileNotFoundException {
 
         Resources resources = mContext.getResources();
@@ -173,6 +181,7 @@ public class RecorderWriter {
         executor.execute(() -> write(writableObject, elapsedTimeSystem, elapsedTimeSensor, values));
     }
 
+    // This function has been modified in order to write simultaneously to the "big file" and the iteration file
     public void write(final WritableObject writableObject, final double elapsedTimeSystem,
                       final Double elapsedTimeSensor, final Object[] values) {
         FileOutputStream fos = mSensorsFos.get(writableObject);
@@ -212,6 +221,7 @@ public class RecorderWriter {
         }
     }
 
+    // Close all FileOutputStream properly on each iteration end
     public void frIterationSensorsFosClose(Integer iteration) throws IOException {
         android.util.Log.d(Application.LOG_TAG, "FlightRecorder: closing FOS of iteration " + iteration.toString());
         Map<WritableObject, FileOutputStream> collection = frIterationSensorsFos.get(iteration);
@@ -285,11 +295,13 @@ public class RecorderWriter {
         mOutputDirectory = null;
     }
 
+    // Original function
     public Pair<File, ZipCreationTask> createZipFile(String fileName, Log log)
             throws IOException {
         return createZipFile(fileName, log, 0);
     }
 
+    // New function with an additional parameter in order to create a zip for each iteration
     public Pair<File, ZipCreationTask> createZipFile(String fileName, Log log, Integer iteration)
             throws IOException {
 

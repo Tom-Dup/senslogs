@@ -40,9 +40,7 @@ public class FlightRecorder {
     private final int interval = 30000; // create an iteration every 30 Seconds
     private Integer iteration = 0;
     private String mainWorkingFolder;
-    private Map<Integer, File> mWorkingFolders;
-    private Set<Sensor> mSensors;
-    private ZipCreationTask mZipCreationTask;
+    private Map<Integer, File> mWorkingFolders; //sub folders for iterations
     private SendQueue sendQueue;
     private String geoLocationUrl = "";
     private String android_id = "";
@@ -56,11 +54,11 @@ public class FlightRecorder {
         mRecorderWriter = mRecorder.getRecorderWriter();
         mWorkingFolders = new HashMap<>();
         mRecorderListener = new Recorder.RecorderListener() {
+            // CAUTION: this function is called on start but also on resume!
             @Override
             public void onPlay() throws FileNotFoundException {
                 android.util.Log.d(Application.LOG_TAG, "FlightRecorder: onPlay");
                 mRecorderWriter = mRecorder.getRecorderWriter();
-                mSensors = mRecorder.getSensors();
                 mLog = mRecorder.getLog();
                 if (iteration == 0) {
                     mainWorkingFolder = String.valueOf(UUID.randomUUID());
@@ -79,6 +77,7 @@ public class FlightRecorder {
             @Override
             public void onPause() {
                 android.util.Log.d(Application.LOG_TAG, "FlightRecorder: onPause");
+                //TODO: record elapsed time for the next task
                 timer.cancel();
                 timerTask.cancel();
             }
@@ -90,12 +89,14 @@ public class FlightRecorder {
                 timerTask.cancel();
                 // Close files pointer properly
                 try {
+                    // As we have a security margin of 1 iteration between each iteration 'close' we need to close manually the last 2 iterations
                     if (iteration>1)
                         mRecorderWriter.frIterationSensorsFosClose(iteration-1);
                     mRecorderWriter.frIterationSensorsFosClose(iteration);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+                // Clear the sending queue
                 sendQueue.terminate(true);
                 deleteWorkingFolders();
                 iteration = 0;
@@ -106,10 +107,11 @@ public class FlightRecorder {
                 android.util.Log.d(Application.LOG_TAG, "FlightRecorder: onSave");
                 timer.cancel();
                 timerTask.cancel();
+                // As we have a security margin of 1 iteration between each iteration 'close' we need to close manually the last 2 iterations
                 save(iteration-1);
                 save(iteration);
+                // Clear the sending queue
                 sendQueue.terminate(false);
-                //deleteWorkingFolders();
                 iteration = 0;
             }
 
@@ -189,17 +191,18 @@ public class FlightRecorder {
     private void run() throws FileNotFoundException {
         iteration++;
         if (iteration > 2) {
+            // IMPORTANT: we added a security margin of 2 iterations, before saving/sending the zip, in order to make sure that all async write operations are done and files pointers are closed
             save(iteration - 2);
         }
         android.util.Log.d(Application.LOG_TAG, "FlightRecorder: timer run " + iteration.toString());
-        // Create new folder for records
+        // Create new (sub)folder for records
         File mTemporaryFolder = new File(mContext.getFilesDir() + "/" + mainWorkingFolder, iteration.toString());
         if (!mTemporaryFolder.mkdir()) {
             throw new FileNotFoundException();
         }
         mWorkingFolders.put(iteration, mTemporaryFolder);
         android.util.Log.d(Application.LOG_TAG, "FlightRecorder: working folder = " + mTemporaryFolder.toString());
-        mRecorderWriter.initFrIteration(iteration, mTemporaryFolder);
+        mRecorderWriter.initFrIteration(iteration, mTemporaryFolder); //TODO: create files before starting/init. the new iteration in order to avoid writing in non existing files!
         for (Sensor sensor : mLog.getSensors()) {
             if (!(sensor instanceof FieldsWritableObject))
                 continue;
@@ -208,10 +211,10 @@ public class FlightRecorder {
     }
 
     private void save(Integer iterationToSave) {
-
+        // Simple check to avoid any exception (but should not happen!)
         if (iterationToSave == 0)
             return;
-
+        // Reminder: here we close the pointers for iteration n-2... unless it's a cancel or finish operation
         ContextCompat.getMainExecutor(mContext).execute(()  -> {
             android.util.Log.d(Application.LOG_TAG, "FlightRecorder: saving iteration " + iterationToSave.toString());
             // Close files pointer properly

@@ -37,12 +37,17 @@ import fr.inria.tyrex.senslogs.ui.utils.KillNotificationsService;
  */
 public class Recorder {
 
-    // Listener defined earlier
+    // Listener for our Flight Recorder
     public interface RecorderListener {
+        // Start or resume action
         public void onPlay() throws FileNotFoundException;
+        // Pause
         public void onPause();
+        // Cancel
         public void onCancel();
+        // Finish action
         public void onSave();
+        // New location received from the GPS Sensor
         public void onNewLocation(Sensor sensor, Object[] objects);
     }
 
@@ -144,6 +149,7 @@ public class Recorder {
                 sensor.setListener(new Sensor.Listener() {
                     @Override
                     public void onNewValues(double diffTimeSystem, double diffTimeSensor, Object[] objects) {
+                        // Listener for realtime location
                         if (listener != null && sensor instanceof LocationGpsSensor) {
                             listener.onNewLocation(sensor, objects);
                         }
@@ -164,6 +170,7 @@ public class Recorder {
         startTimer();
         isRecording = true;
 
+        // Send 'onPlay' event to the Flight Recorder
         if (listener != null)
             listener.onPlay();
     }
@@ -190,6 +197,7 @@ public class Recorder {
         mLog.getRecordTimes().endTime = System.currentTimeMillis() / 1e3d;
         isRecording = false;
 
+        // Send 'onPause' event to the Flight Recorder
         if (listener != null)
             listener.onPause();
     }
@@ -206,6 +214,7 @@ public class Recorder {
         isInitialized = false;
         isRecording = false;
 
+        // Send 'onCancel' event to the Flight Recorder
         if (listener != null)
             listener.onCancel();
     }
@@ -217,6 +226,8 @@ public class Recorder {
 
     public Log save(String title, String user, String positionOrientation, String comment) throws IOException {
 
+        // Send 'onSave' event to the Flight Recorder
+        // Note: we do this on top because after the files are deleted
         if (listener != null)
             listener.onSave();
 

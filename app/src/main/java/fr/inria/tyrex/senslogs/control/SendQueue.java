@@ -89,6 +89,7 @@ public class SendQueue extends Thread {
     }
 
     private void clearFilesQueue(boolean deleteFiles) {
+        // TODO: delete un-sent files
         this.filesToSend = new HashMap<>();
     }
 
@@ -115,7 +116,8 @@ public class SendQueue extends Thread {
     public void terminate(boolean isCancelled) {
         timer.cancel();
         timer = null;
-        // Stop our loop and delete files
+        clearFilesQueue(isCancelled);
+        clearRequestsQueue();
         this.interrupt();
     }
 
@@ -124,6 +126,7 @@ public class SendQueue extends Thread {
             @Override
             public void run() {
                 try {
+                    // Note: we remove the file from the index before any other operation in order to avoid another simultaneous "call" for this file
                     filesToSend.remove(index);
                     Sardine sardine = new OkHttpSardine();
                     sardine.setCredentials(webDavUsername, webDavPassword);
@@ -134,11 +137,11 @@ public class SendQueue extends Thread {
                         if (file.delete())
                             android.util.Log.d(Application.LOG_TAG, "SendQueue: file " + file.toString() + " deleted for index " + index);
                     } catch (IOException e) {
-                        //e.printStackTrace();
+                        // On failed, we re-queue the file
                         filesToSend.put(index, file);
                     }
                 } catch (Exception e) {
-                    //e.printStackTrace();
+                    // On failed, we re-queue the file
                     filesToSend.put(index, file);
                 }
             }
@@ -147,6 +150,7 @@ public class SendQueue extends Thread {
     }
 
     private void sendRequest(Long timestamp, String url) {
+        // Note: we remove the request from the index before any other operation in order to avoid another simultaneous "call" for this request
         requestsToSend.remove(timestamp);
         String response = "";
         try {
@@ -158,6 +162,7 @@ public class SendQueue extends Thread {
         }
     }
 
+    // This is the main function called every second
     private void handleQueues() {
         if (requestsToSend.isEmpty() && filesToSend.isEmpty())
             return;
@@ -166,6 +171,7 @@ public class SendQueue extends Thread {
             return ;
         }
         android.util.Log.d(Application.LOG_TAG, "SendQueue: network found, processing queue");
+        // Important: we create a copy of the collection (to be used in the loop) in order to avoid the "java.util.ConcurrentModificationException" error
         Map<Long, String> requests = new HashMap<>();
         for (Map.Entry<Long, String> item : requestsToSend.entrySet()) {
             requests.put(item.getKey(), item.getValue());
@@ -173,6 +179,7 @@ public class SendQueue extends Thread {
         for (Map.Entry<Long, String> item : requests.entrySet()) {
             sendRequest(item.getKey(), item.getValue());
         }
+        // Important: we create a copy of the collection (to be used in the loop) in order to avoid the "java.util.ConcurrentModificationException" error
         Map<Integer, File> files = new HashMap<>();
         for (Map.Entry<Integer, File> item : filesToSend.entrySet()) {
             files.put(item.getKey(), item.getValue());
