@@ -1,6 +1,7 @@
 package fr.inria.tyrex.senslogs.control;
 
 import android.content.Context;
+import android.os.Environment;
 import android.util.Pair;
 
 import com.thegrizzlylabs.sardineandroid.Sardine;
@@ -270,9 +271,13 @@ public class FlightRecorder {
                                     }
                                     String filename = webDavUrl + mainWorkingFolder + "/" + zipFile.getName();
                                     try {
+                                        // copy file to SDCARD (if any)
+                                        if (StorageHelper.isExternalStorageReadableAndWritable()) {
+                                            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: copying file to sdcard as " + zipFile.getName());
+                                            copyFileToSdCard(zipFile);
+                                        }
                                         android.util.Log.d(Application.LOG_TAG, "FlightRecorder: sending file to webdav " + filename);
                                         sardine.put(filename, zipFile, "application/zip");
-                                        //TODO: copy file to SDCARD (if any)
                                         if (zipFile.delete())
                                             android.util.Log.d(Application.LOG_TAG, "FlightRecorder: zip file " + zipFile.toString() + " deleted for iteration " + iterationToSave);
                                     } catch (IOException e) {
@@ -290,6 +295,21 @@ public class FlightRecorder {
                 e.printStackTrace();
             }
         });
+    }
+
+    public void copyFileToSdCard(File file) {
+
+        File outputDir = new File(Environment.getExternalStorageDirectory(),
+                mContext.getString(R.string.folder_logs_sd_card));
+
+        if(!outputDir.exists() && !outputDir.mkdir()) {
+            return ;
+        }
+
+        File outputFile = new File(outputDir, file.getName());
+
+        CopyTask task = new CopyTask();
+        task.execute(new CopyTask.Input(file, outputFile));
     }
 
     private void cancel() {
