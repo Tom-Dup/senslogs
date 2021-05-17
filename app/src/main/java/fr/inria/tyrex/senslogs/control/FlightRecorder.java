@@ -4,9 +4,6 @@ import android.content.Context;
 import android.os.Environment;
 import android.util.Pair;
 
-import com.thegrizzlylabs.sardineandroid.Sardine;
-import com.thegrizzlylabs.sardineandroid.impl.OkHttpSardine;
-
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -43,29 +40,14 @@ public class FlightRecorder {
     private Map<Integer, File> mWorkingFolders;
     private Set<Sensor> mSensors;
     private ZipCreationTask mZipCreationTask;
-    private String webDavUsername = "";
-    private String webDavPassword = "";
-    private String webDavUrl = "";
+    private SendQueue sendQueue;
     private String geoLocationUrl = "";
-
-    OkHttpClient client = new OkHttpClient();
-
-    String getUrl(String url) throws IOException {
-        Request request = new Request.Builder()
-                .url(url)
-                .build();
-        try (Response response = client.newCall(request).execute()) {
-            return Objects.requireNonNull(response.body()).string();
-        }
-    }
 
     public FlightRecorder(Context context, Recorder realRecorder) {
         mContext = context;
-        webDavUsername = mContext.getResources().getString(R.string.webdav_username);
-        webDavPassword = mContext.getResources().getString(R.string.webdav_password);
-        webDavUrl = mContext.getResources().getString(R.string.webdav_url);
-        geoLocationUrl = mContext.getResources().getString(R.string.geolocation_url);
         mRecorder = realRecorder;
+        sendQueue  = new SendQueue(context);
+        geoLocationUrl = context.getResources().getString(R.string.geolocation_url);
         mRecorderWriter = mRecorder.getRecorderWriter();
         mWorkingFolders = new HashMap<>();
         mRecorderListener = new Recorder.RecorderListener() {
@@ -82,6 +64,7 @@ public class FlightRecorder {
                         throw new FileNotFoundException();
                     }
                     mRecorderWriter.setCurrentFrWorkingFolder(mTemporaryFolder);
+                    sendQueue.start();
                 }
                 timer = new Timer();
                 timerTask = createTask();
@@ -108,6 +91,7 @@ public class FlightRecorder {
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
+                sendQueue.terminate(true);
                 deleteWorkingFolders();
                 iteration = 0;
             }
@@ -119,6 +103,7 @@ public class FlightRecorder {
                 timerTask.cancel();
                 save(iteration-1);
                 save(iteration);
+                sendQueue.terminate(false);
                 //deleteWorkingFolders();
                 iteration = 0;
             }
@@ -129,7 +114,7 @@ public class FlightRecorder {
                     @Override
                     public void run() {
                         try {
-                            sendNewLocation(sensor, objects);
+                            addNewLocationToQueue(sensor, objects);
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -141,19 +126,14 @@ public class FlightRecorder {
         mRecorder.setListener(mRecorderListener);
     }
 
-    private void sendNewLocation(Sensor sensor, Object[] values) {
+    private void addNewLocationToQueue(Sensor sensor, Object[] values) {
+        Long time = System.currentTimeMillis();
         StringBuilder buffer = new StringBuilder();
-        String response = null;
+        buffer.append(time.toString()).append(";");
         for (Object value : values) {
             buffer.append(value.toString()).append(";");
         }
-        try {
-            response = getUrl(geoLocationUrl + "?data=" + buffer.toString());
-            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: sendNewLocation response " + response);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        System.out.println(response);
+        sendQueue.addRequestToQueue(geoLocationUrl + "?data=" + buffer.toString());
     }
 
     private void deleteWorkingFolders() {
@@ -254,41 +234,13 @@ public class FlightRecorder {
                         if (mTemporaryFolder.delete())
                             android.util.Log.d(Application.LOG_TAG, "FlightRecorder: working folder " + mTemporaryFolder.toString() + " deleted for iteration " + iterationToSave);
                         zipTask.removeListener(this);
+                        // copy file to SDCARD (if any)
+                        if (StorageHelper.isExternalStorageReadableAndWritable()) {
+                            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: copying file to sdcard as " + zipFile.getName());
+                            copyFileToSdCard(zipFile);
+                        }
                         // Send file web server
-                        Thread thread = new Thread(new Runnable(){
-                            @Override
-                            public void run() {
-                                try {
-                                    Sardine sardine = new OkHttpSardine();
-                                    sardine.setCredentials(webDavUsername, webDavPassword);
-                                    if (iterationToSave == 1) {
-                                        try {
-                                            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: create webdav directory " + webDavUrl + mainWorkingFolder);
-                                            sardine.createDirectory(webDavUrl + mainWorkingFolder);
-                                        } catch (IOException e) {
-                                            e.printStackTrace();
-                                        }
-                                    }
-                                    String filename = webDavUrl + mainWorkingFolder + "/" + zipFile.getName();
-                                    try {
-                                        // copy file to SDCARD (if any)
-                                        if (StorageHelper.isExternalStorageReadableAndWritable()) {
-                                            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: copying file to sdcard as " + zipFile.getName());
-                                            copyFileToSdCard(zipFile);
-                                        }
-                                        android.util.Log.d(Application.LOG_TAG, "FlightRecorder: sending file to webdav " + filename);
-                                        sardine.put(filename, zipFile, "application/zip");
-                                        if (zipFile.delete())
-                                            android.util.Log.d(Application.LOG_TAG, "FlightRecorder: zip file " + zipFile.toString() + " deleted for iteration " + iterationToSave);
-                                    } catch (IOException e) {
-                                        e.printStackTrace();
-                                    }
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        });
-                        thread.start();
+                        sendQueue.addFileToQueue(iterationToSave, zipFile);
                     }
                 });
             } catch (IOException e) {

@@ -1,5 +1,9 @@
 package fr.inria.tyrex.senslogs;
 
+import android.content.Context;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
+
 import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
@@ -83,7 +87,6 @@ public class Application extends android.app.Application {
         mLogsManager.clearAll();
         mPreferencesManager.clearAll();
     }
-
 
     public static void deleteRecursive(File fileOrDirectory) {
         if (fileOrDirectory.isDirectory())
