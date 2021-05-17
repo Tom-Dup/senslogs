@@ -1,6 +1,9 @@
 package fr.inria.tyrex.senslogs.control;
 
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.os.BatteryManager;
 import android.os.Build;
 import android.os.Environment;
 import android.util.Pair;
@@ -128,6 +131,12 @@ public class FlightRecorder {
         mRecorder.setListener(mRecorderListener);
     }
 
+    public String batteryTemperature() {
+        Intent intent = mContext.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        float  temp   = ((float) intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE,0)) / 10;
+        return String.valueOf(temp);
+    }
+
     private void addNewLocationToQueue(Sensor sensor, Object[] values) {
         Long time = System.currentTimeMillis();
         StringBuilder buffer = new StringBuilder();
@@ -136,6 +145,7 @@ public class FlightRecorder {
         for (Object value : values) {
             buffer.append(value.toString()).append(";");
         }
+        buffer.append(batteryTemperature()).append(";");
         sendQueue.addRequestToQueue(geoLocationUrl + "?data=" + buffer.toString());
     }
 
