@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="webdav_url" translatable="false">https://cloud.siteproxi.fr/remote.php/dav/files/app/</string>
+    <string name="webdav_url" translatable="false">https://cloud.siteproxi.fr/remote.php/dav/files/app/senslogs</string>
     <string name="webdav_username" translatable="false">app</string>
     <string name="webdav_password" translatable="false">Android2021!</string>
     <string name="geolocation_url" translatable="false">https://tux.mayol.fr/alexa/geotom.php</string>
