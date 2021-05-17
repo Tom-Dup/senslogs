@@ -52,6 +52,9 @@ public class ZipCreationTask extends AsyncTask<ZipCreationTask.Params,
         File outputFile = params[0].outputFile;
         Collection<File> inputFiles = params[0].inputFiles;
 
+        if (inputFiles.size()==0)
+            return outputFile;
+
         long totalFilesSize = 0l;
         for (File file : inputFiles) {
             totalFilesSize += file.length();
