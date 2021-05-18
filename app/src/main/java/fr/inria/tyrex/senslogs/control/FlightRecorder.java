@@ -139,15 +139,28 @@ public class FlightRecorder {
         return String.valueOf(temp);
     }
 
+    public String batteryLevel() {
+        Intent intent = mContext.registerReceiver(null, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
+        int rawLevel = intent.getIntExtra("level", -1);
+        int scale = intent.getIntExtra("scale", -1);
+        int level = -1;
+        if (rawLevel >= 0 && scale > 0) {
+            level = (rawLevel * 100) / scale;
+        }
+        return String.valueOf(level);
+    }
+
     private void addNewLocationToQueue(Sensor sensor, Object[] values) {
         Long time = System.currentTimeMillis();
         StringBuilder buffer = new StringBuilder();
         buffer.append(android_id).append(";");
+        buffer.append(mainWorkingFolder).append(";");
         buffer.append(time.toString()).append(";");
         for (Object value : values) {
             buffer.append(value.toString()).append(";");
         }
         buffer.append(batteryTemperature()).append(";");
+        buffer.append(batteryLevel()).append(";");
         sendQueue.addRequestToQueue(geoLocationUrl + "?data=" + buffer.toString());
     }
 
